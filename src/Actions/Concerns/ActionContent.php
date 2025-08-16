@@ -20,7 +20,7 @@ use Spatie\Activitylog\Models\Activity;
 
 trait ActionContent
 {
-    private ?array $withRelations = null;
+    protected ?array $withRelations = null;
 
     protected ?array $timelineIcons = [
         'created'  => 'heroicon-m-plus',
@@ -29,14 +29,14 @@ trait ActionContent
         'restored' => 'heroicon-m-arrow-uturn-left',
     ];
 
-    private ?array $timelineIconColors = [
+    protected ?array $timelineIconColors = [
         'created'  => 'success',
         'updated'  => 'warning',
         'deleted'  => 'danger',
         'restored' => 'info',
     ];
 
-    private ?int $limit = 10;
+    protected ?int $limit = 10;
 
     protected Closure $modifyQueryUsing;
 
@@ -122,7 +122,7 @@ trait ActionContent
                 });
         };
     }
-    private function configureInfolist(): void
+    protected function configureInfolist(): void
     {
         $this->infolist(function (?Model $record, Infolist $infolist) {
             $activities = $this->getActivityLogRecord($record, $this->getWithRelations());
@@ -151,7 +151,7 @@ trait ActionContent
             ->icon('heroicon-o-bell-alert');
     }
 
-    private function getSchema(): array
+    protected function getSchema(): array
     {
         return [
             TimeLineRepeatableEntry::make('activities')
@@ -336,7 +336,8 @@ trait ActionContent
         ];
     }
 
-    private static function formatDateValues(array|string|bool|null $value): array|string|null
+
+    protected static function formatDateValues(array|string|null $value): array|string|null
     {
         if (is_null($value)) {
             return $value;

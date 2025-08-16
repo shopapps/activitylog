@@ -20,14 +20,14 @@ class TimeLinePropertiesEntry extends Entry
         $this->configurePropertieEntry();
     }
 
-    private function configurePropertieEntry(): void
+    protected function configurePropertieEntry(): void
     {
         $this
             ->hiddenLabel()
             ->modifyState(fn ($state) => $this->modifiedProperties($state));
     }
 
-    private function modifiedProperties($state): ?HtmlString
+    protected function modifiedProperties($state): ?HtmlString
     {
         $properties = $state['properties'];
 
@@ -45,7 +45,7 @@ class TimeLinePropertiesEntry extends Entry
         return null;
     }
 
-    private function getPropertyChanges(array $properties): array
+    protected function getPropertyChanges(array $properties): array
     {
         $changes = [];
 
@@ -60,7 +60,7 @@ class TimeLinePropertiesEntry extends Entry
         return $changes;
     }
 
-    private function compareOldAndNewValues(array $oldValues, array $newValues): array
+    protected function compareOldAndNewValues(array $oldValues, array $newValues): array
     {
         $changes = [];
 
@@ -87,7 +87,7 @@ class TimeLinePropertiesEntry extends Entry
         return $changes;
     }
 
-    private function getNewValues(array $newValues): array
+    protected function getNewValues(array $newValues): array
     {
         return array_map(
             fn ($key, $value) => sprintf(
@@ -100,7 +100,7 @@ class TimeLinePropertiesEntry extends Entry
         );
     }
 
-    private function formatNewValue($value): string
+    protected function formatNewValue($value): string
     {
         return is_array($value) ? json_encode($value) : $value ?? '—';
     }

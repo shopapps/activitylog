@@ -86,7 +86,7 @@ class ActivitylogResource extends Resource
             number_format(static::getModel()::count()) : null;
     }
 
-    private static function getResourceUrl(Activity $record): string
+    protected static function getResourceUrl(Activity $record): string
     {
         $panelID = Filament::getCurrentPanel()->getId();
 
@@ -253,7 +253,7 @@ class ActivitylogResource extends Resource
             ])->columns(1);
     }
 
-    private static function flattenArrayForKeyValue(array $data): array
+    protected static function flattenArrayForKeyValue(array $data): array
     {
         $flattened = [];
 
@@ -286,6 +286,7 @@ class ActivitylogResource extends Resource
             ->filters([
                 static::getDateFilterComponent(),
                 static::getEventFilterComponent(),
+                static::getLogNameFilterComponent(),
             ]);
     }
 
@@ -465,6 +466,13 @@ class ActivitylogResource extends Resource
             );
     }
 
+    public static function getLogNameFilterComponent(): SelectFilter
+    {
+        return SelectFilter::make('log_name')
+            ->label(__('activitylog::tables.filters.log_name.label'))
+            ->options(static::getModel()::distinct()->pluck('log_name', 'log_name')->filter());
+    }
+
     public static function getPages(): array
     {
         return [
@@ -491,7 +499,7 @@ class ActivitylogResource extends Resource
         return ActivitylogPlugin::get()->isAuthorized();
     }
 
-    private static function canViewResource(Activity $record): bool
+    protected static function canViewResource(Activity $record): bool
     {
         if ($record->subject_type && $record->subject_id) {
             try {
