@@ -9,6 +9,7 @@ use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Infolist;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Support\Collection;
 use Rmsramos\Activitylog\ActivitylogPlugin;
 use Rmsramos\Activitylog\Infolists\Components\TimeLineIconEntry;
@@ -88,6 +89,21 @@ trait ActionContent
                             if (method_exists($record, $relation)) {
                                 try {
                                     $relationInstance = $record->{$relation}();
+
+                                    if ($relationInstance instanceof BelongsToMany) {
+                                        $subjectType = $relationInstance->getPivotClass();
+                                        $relatedIds  = $relationInstance->pluck($relationInstance->getTable().'.id')->toArray();
+
+                                        if (! empty($relatedIds)) {
+                                            $query->orWhere(function (Builder $q) use ($subjectType, $relatedIds) {
+                                                $q->where('subject_type', $subjectType)
+                                                    ->whereIn('subject_id', $relatedIds);
+                                            });
+                                        }
+
+                                        continue;
+                                    }
+
                                     $relatedModel     = $relationInstance->getRelated();
                                     $relatedIds       = $relationInstance->pluck('id')->toArray();
 
@@ -320,6 +336,7 @@ trait ActionContent
         ];
     }
 
+
     protected static function formatDateValues(array|string|null $value): array|string|null
     {
         if (is_null($value)) {
@@ -336,6 +353,10 @@ trait ActionContent
 
         if (is_numeric($value) && ! preg_match('/^\d{10,}$/', $value)) {
             return $value;
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
         }
 
         try {
