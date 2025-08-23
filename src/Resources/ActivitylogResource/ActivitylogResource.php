@@ -1,20 +1,15 @@
 <?php
 
-namespace Rmsramos\Activitylog\Resources;
+namespace Rmsramos\Activitylog\Resources\ActivitylogResource;
 
+use ActivitylogForm;
 use Exception;
 use Filament\Facades\Filament;
-use Filament\Forms\Components\Actions\Action;
 use Filament\Forms\Components\DatePicker;
-use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Placeholder;
-use Filament\Forms\Components\Section;
-use Filament\Forms\Components\Split;
-use Filament\Forms\Components\Textarea;
-use Filament\Forms\Components\TextInput;
-use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Filament\Schemas\Schema;
 use Filament\Tables\Columns\Column;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ViewColumn;
@@ -36,7 +31,6 @@ use Rmsramos\Activitylog\RelationManagers\ActivitylogRelationManager;
 use Rmsramos\Activitylog\Resources\ActivitylogResource\Pages\ListActivitylog;
 use Rmsramos\Activitylog\Resources\ActivitylogResource\Pages\ViewActivitylog;
 use Rmsramos\Activitylog\Traits\HasCustomActivityResource;
-
 use Spatie\Activitylog\Models\Activity;
 
 class ActivitylogResource extends Resource
@@ -95,16 +89,16 @@ class ActivitylogResource extends Resource
                 $model = app($record->subject_type);
 
                 if (ActivityLogHelper::classUsesTrait($model, HasCustomActivityResource::class)) {
-                    $resourceModel      = $model->getFilamentActualResourceModel($record);
+                    $resourceModel = $model->getFilamentActualResourceModel($record);
                     $resourcePluralName = ActivityLogHelper::getResourcePluralName($resourceModel);
 
-                    return route('filament.' . $panelID . '.resources.' . $resourcePluralName . '.edit', ['record' => $resourceModel->id]);
+                    return route('filament.'.$panelID.'.resources.'.$resourcePluralName.'.edit', ['record' => $resourceModel->id]);
                 }
 
                 // Fallback to a standard resource mapping
                 $resourcePluralName = ActivityLogHelper::getResourcePluralName($record->subject_type);
 
-                return route('filament.' . $panelID . '.resources.' . $resourcePluralName . '.edit', ['record' => $record->subject_id]);
+                return route('filament.'.$panelID.'.resources.'.$resourcePluralName.'.edit', ['record' => $record->subject_id]);
             } catch (Exception $e) {
                 // If there's any error generating the URL, return placeholder
                 return '#';
@@ -114,143 +108,9 @@ class ActivitylogResource extends Resource
         return '#';
     }
 
-    public static function form(Form $form): Form
+    public static function form(Schema $schema): Schema
     {
-        return $form
-            ->schema([
-                Split::make([
-                    Section::make([
-                        TextInput::make('causer_id')
-                            ->afterStateHydrated(function ($component, ?Model $record) {
-                                return $component->state($record?->causer?->name ?? '-');
-                            })
-                            ->label(__('activitylog::forms.fields.causer.label')),
-
-                        TextInput::make('subject_type')
-                            ->afterStateHydrated(function ($component, ?Model $record, $state) {
-                                /** @var Activity $record */
-                                return $state ? $component->state(Str::of($state)->afterLast('\\')->headline() . ' # ' . $record->subject_id) : $component->state('-');
-                            })
-                            ->label(__('activitylog::forms.fields.subject_type.label')),
-
-                        Textarea::make('description')
-                            ->label(__('activitylog::forms.fields.description.label'))
-                            ->rows(2)
-                            ->columnSpan('full'),
-                    ]),
-                    Section::make([
-                        Placeholder::make('log_name')
-                            ->content(function (?Model $record): string {
-                                /** @var Activity $record */
-                                return $record?->log_name ? ucwords($record->log_name) : '-';
-                            })
-                            ->label(__('activitylog::forms.fields.log_name.label')),
-
-                        Placeholder::make('event')
-                            ->content(function (?Model $record): string {
-                                /** @var Activity $record */
-                                return $record?->event ? ucwords(__('activitylog::action.event.' . $record->event)) : '-';
-                            })
-                            ->label(__('activitylog::forms.fields.event.label')),
-
-                        Placeholder::make('created_at')
-                            ->label(__('activitylog::forms.fields.created_at.label'))
-                            ->content(function (?Model $record): string {
-                                /** @var Activity $record */
-                                if (! $record?->created_at) {
-                                    return '-';
-                                }
-
-                                $parser = ActivitylogPlugin::get()->getDateParser();
-
-                                return $parser($record->created_at)
-                                    ->format(ActivitylogPlugin::get()->getDatetimeFormat());
-                            }),
-                    ])->grow(false),
-                ])->from('md'),
-
-                Section::make(__('activitylog::forms.changes'))
-                    ->headerActions([
-                        Action::make('restore')
-                            ->label(__('activitylog::action.restore'))
-                            ->icon('heroicon-o-arrow-uturn-left')
-                            ->color('primary')
-                            ->action(fn (Activity $record) => self::restoreActivity($record->id))
-                            ->visible(function (Activity $record): bool {
-                                return ! ActivitylogPlugin::get()->getIsRestoreActionHidden() && $record->properties &&
-                                    data_get($record->properties, 'old') !== null &&
-                                    $record->subject !== null && $record->event !== 'deleted';
-                            })
-                            ->authorize(fn () => auth()->user()?->can('restore_activitylog') ?? false)
-                            ->requiresConfirmation(),
-
-                        Action::make('edit')
-                            ->label(__('activitylog::action.edit'))
-                            ->icon('heroicon-o-eye')
-                            ->color('info')
-                            ->url(fn (Activity $record) => self::getResourceUrl($record))
-                            ->visible(fn () => ! ActivitylogPlugin::get()->getIsResourceActionHidden())
-                            ->authorize(fn (Activity $record) => self::canViewResource($record)),
-
-                        Action::make('restore_soft_delete')
-                            ->label(__('activitylog::action.restore_soft_delete.label'))
-                            ->icon('heroicon-o-arrow-uturn-left')
-                            ->color('warning')
-                            ->visible(function (Activity $record): bool {
-                                return static::canRestoreSubjectFromSoftDelete($record);
-                            })
-                            ->action(function (Activity $record) {
-                                static::restoreSubjectFromSoftDelete($record);
-                            })
-                            ->authorize(fn () => auth()->user()?->can('restore_activitylog') ?? false)
-                            ->requiresConfirmation()
-                            ->modalHeading(__('activitylog::action.restore_soft_delete.modal_heading'))
-                            ->modalDescription(__('activitylog::action.restore_soft_delete.modal_description')),
-                    ])
-                    ->columns()
-                    ->visible(fn (?Model $record) => $record?->properties?->count() > 0)
-                    ->schema(function (?Model $record) {
-                        /** @var Activity $record */
-                        if (! $record?->properties) {
-                            return [];
-                        }
-
-                        $properties = $record->properties->except(['attributes', 'old']);
-                        $schema     = [];
-
-                        if ($properties->count()) {
-                            $schema[] = KeyValue::make('properties')
-                                ->afterStateHydrated(function (KeyValue $component) use ($properties) {
-                                    $component->state(static::flattenArrayForKeyValue($properties->toArray()));
-                                })
-                                ->label(__('activitylog::forms.fields.properties.label'))
-                                ->columnSpan('full')
-                                ->disabled();
-                        }
-
-                        if ($old = $record->properties->get('old')) {
-                            $schema[] = KeyValue::make('old')
-                                ->afterStateHydrated(function (KeyValue $component) use ($old) {
-                                    $oldArray = is_array($old) ? $old : [];
-                                    $component->state(static::flattenArrayForKeyValue($oldArray));
-                                })
-                                ->label(__('activitylog::forms.fields.old.label'))
-                                ->disabled();
-                        }
-
-                        if ($attributes = $record->properties->get('attributes')) {
-                            $schema[] = KeyValue::make('attributes')
-                                ->afterStateHydrated(function (KeyValue $component) use ($attributes) {
-                                    $attributesArray = is_array($attributes) ? $attributes : [];
-                                    $component->state(static::flattenArrayForKeyValue($attributesArray));
-                                })
-                                ->label(__('activitylog::forms.fields.attributes.label'))
-                                ->disabled();
-                        }
-
-                        return $schema;
-                    }),
-            ])->columns(1);
+        return ActivitylogForm::configure($schema);
     }
 
     protected static function flattenArrayForKeyValue(array $data): array
@@ -317,15 +177,15 @@ class ActivitylogResource extends Resource
     {
         return TextColumn::make('event')
             ->label(__('activitylog::tables.columns.event.label'))
-            ->formatStateUsing(fn ($state) => $state ? ucwords(__('activitylog::action.event.' . $state)) : '-')
+            ->formatStateUsing(fn ($state) => $state ? ucwords(__('activitylog::action.event.'.$state)) : '-')
             ->badge()
             ->color(fn (?string $state): string => match ($state) {
-                'draft'    => 'gray',
-                'updated'  => 'warning',
-                'created'  => 'success',
-                'deleted'  => 'danger',
+                'draft' => 'gray',
+                'updated' => 'warning',
+                'created' => 'success',
+                'deleted' => 'danger',
                 'restored' => 'info',
-                default    => 'primary',
+                default => 'primary',
             })
             ->searchable()
             ->sortable();
@@ -341,7 +201,7 @@ class ActivitylogResource extends Resource
                     return '-';
                 }
 
-                $subjectInfo = Str::of($state)->afterLast('\\')->headline() . ' # ' . $record->subject_id;
+                $subjectInfo = Str::of($state)->afterLast('\\')->headline().' # '.$record->subject_id;
 
                 if ($record->subject) {
                     if (method_exists($record->subject, 'trashed') && $record->subject->trashed()) {
@@ -403,7 +263,7 @@ class ActivitylogResource extends Resource
     {
         $field = DatePicker::make($label)
             ->format(ActivitylogPlugin::get()->getDateFormat())
-            ->label(__('activitylog::tables.filters.created_at.' . $label));
+            ->label(__('activitylog::tables.filters.created_at.'.$label));
 
         // Apply the custom callback if set
         $callback = ActivitylogPlugin::get()->getDatePickerCallback();
@@ -421,7 +281,7 @@ class ActivitylogResource extends Resource
             ->label(__('activitylog::tables.filters.created_at.label'))
             ->indicateUsing(function (array $data): array {
                 $indicators = [];
-                $parser     = ActivitylogPlugin::get()->getDateParser();
+                $parser = ActivitylogPlugin::get()->getDateParser();
 
                 if ($data['created_from'] ?? null) {
                     $indicators['created_from'] = __('activitylog::tables.filters.created_at.created_from_indicator', [
@@ -462,7 +322,7 @@ class ActivitylogResource extends Resource
             ->label(__('activitylog::tables.filters.event.label'))
             ->options(static::getModel()::distinct()
                 ->pluck('event', 'event')
-                ->mapWithKeys(fn ($value, $key) => [$key => __('activitylog::action.event.' . $value)])
+                ->mapWithKeys(fn ($value, $key) => [$key => __('activitylog::action.event.'.$value)])
             );
     }
 
@@ -477,7 +337,7 @@ class ActivitylogResource extends Resource
     {
         return [
             'index' => ListActivitylog::route('/'),
-            'view'  => ViewActivitylog::route('/{record}'),
+            'view' => ViewActivitylog::route('/{record}'),
         ];
     }
 
@@ -507,7 +367,7 @@ class ActivitylogResource extends Resource
 
                 if (ActivityLogHelper::classUsesTrait($model, HasCustomActivityResource::class)) {
                     $resourceModel = $model->getFilamentActualResourceModel($record);
-                    $user          = auth()->user();
+                    $user = auth()->user();
 
                     return $user && $user->can('update', $resourceModel);
                 }
@@ -572,7 +432,7 @@ class ActivitylogResource extends Resource
                     ->causedBy(auth()->user())
                     ->withProperties([
                         'attributes' => $oldProperties,
-                        'old'        => $newProperties,
+                        'old' => $newProperties,
                     ])
                     ->tap(function ($log) {
                         $log->event = 'restored';
@@ -663,12 +523,12 @@ class ActivitylogResource extends Resource
                     ->performedOn($subject)
                     ->causedBy(auth()->user())
                     ->withProperties([
-                        'attributes'       => $afterRestore,
-                        'old'              => $beforeRestore,
+                        'attributes' => $afterRestore,
+                        'old' => $beforeRestore,
                         'restore_metadata' => [
                             'restored_from_soft_delete' => true,
-                            'original_activity_id'      => $record->id,
-                            'restore_type'              => 'soft_delete',
+                            'original_activity_id' => $record->id,
+                            'restore_type' => 'soft_delete',
                         ],
                     ])
                     ->tap(function ($log) {
@@ -689,7 +549,7 @@ class ActivitylogResource extends Resource
 
             Notification::make()
                 ->title(__('activitylog::notifications.error_restoring_model'))
-                ->body('Erro: ' . $e->getMessage())
+                ->body('Erro: '.$e->getMessage())
                 ->danger()
                 ->send();
         }
