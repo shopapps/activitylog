@@ -1,6 +1,6 @@
 <?php
 
-namespace Rmsramos\Activitylog\Resources\ActivitylogResource;
+namespace Rmsramos\Activitylog\Resources;
 
 use Exception;
 use Filament\Facades\Filament;
