@@ -1,19 +1,23 @@
 <?php
 
+namespace Rmsramos\Activitylog\Resources\ActivitylogResource\Schemas;
+
+use Filament\Forms\Components\Section;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Form;
 use Filament\Infolists\Components\TextEntry;
-use Filament\Schemas\Components\Section;
-use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 use Rmsramos\Activitylog\ActivitylogPlugin;
+use Spatie\Activitylog\Models\Activity;
 
 class ActivitylogForm
 {
-    public static function configure(Schema $schema): Schema
+    public static function configure(Form $form): Form
     {
-        return $schema
-            ->components([
+        return $form
+            ->schema([
                 Section::make([
                     TextInput::make('causer_id')
                         ->afterStateHydrated(function ($component, ?Model $record) {

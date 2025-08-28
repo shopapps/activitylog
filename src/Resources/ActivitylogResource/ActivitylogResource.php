@@ -2,14 +2,15 @@
 
 namespace Rmsramos\Activitylog\Resources\ActivitylogResource;
 
-use ActivitylogForm;
 use Exception;
 use Filament\Facades\Filament;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Placeholder;
+use Filament\Forms\Form;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
-use Filament\Schemas\Schema;
+use Filament\Tables\Actions\Action;
+use Filament\Tables\Actions\ViewAction;
 use Filament\Tables\Columns\Column;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ViewColumn;
@@ -30,6 +31,7 @@ use Rmsramos\Activitylog\Helpers\ActivityLogHelper;
 use Rmsramos\Activitylog\RelationManagers\ActivitylogRelationManager;
 use Rmsramos\Activitylog\Resources\ActivitylogResource\Pages\ListActivitylog;
 use Rmsramos\Activitylog\Resources\ActivitylogResource\Pages\ViewActivitylog;
+use Rmsramos\Activitylog\Resources\ActivitylogResource\Schemas\ActivitylogForm;
 use Rmsramos\Activitylog\Traits\HasCustomActivityResource;
 use Spatie\Activitylog\Models\Activity;
 
@@ -108,9 +110,9 @@ class ActivitylogResource extends Resource
         return '#';
     }
 
-    public static function form(Schema $schema): Schema
+    public static function form(Form $form): Form
     {
-        return ActivitylogForm::configure($schema);
+        return ActivitylogForm::configure($form);
     }
 
     protected static function flattenArrayForKeyValue(array $data): array
@@ -147,6 +149,43 @@ class ActivitylogResource extends Resource
                 static::getDateFilterComponent(),
                 static::getEventFilterComponent(),
                 static::getLogNameFilterComponent(),
+            ])
+            ->actions([
+                ViewAction::make(),
+                Action::make('restore')
+                    ->label(__('activitylog::tables.actions.restore'))
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->visible(fn (Activity $record): bool =>
+                        !ActivitylogPlugin::get()->getIsRestoreActionHidden() &&
+                        $record->properties &&
+                        isset($record->properties['old']) &&
+                        static::canViewResource($record)
+                    )
+                    ->action(fn (Activity $record) => static::restoreActivity($record->id))
+                    ->requiresConfirmation()
+                    ->modalDescription(__('activitylog::tables.actions.restore_confirmation')),
+
+                Action::make('restore_model')
+                    ->label(__('activitylog::tables.actions.restore_model'))
+                    ->icon('heroicon-o-arrow-up-tray')
+                    ->color('success')
+                    ->visible(fn (Activity $record): bool => static::canRestoreSubjectFromSoftDelete($record))
+                    ->action(fn (Activity $record) => static::restoreSubjectFromSoftDelete($record))
+                    ->requiresConfirmation()
+                    ->modalDescription(__('activitylog::tables.actions.restore_model_confirmation')),
+
+                Action::make('view_resource')
+                    ->label(__('activitylog::tables.actions.view_resource'))
+                    ->icon('heroicon-o-eye')
+                    ->color('primary')
+                    ->visible(fn (Activity $record): bool =>
+                        !ActivitylogPlugin::get()->getIsResourceActionHidden() &&
+                        static::canViewResource($record) &&
+                        static::getResourceUrl($record) !== '#'
+                    )
+                    ->url(fn (Activity $record): string => static::getResourceUrl($record))
+                    ->openUrlInNewTab(),
             ]);
     }
 
@@ -357,6 +396,26 @@ class ActivitylogResource extends Resource
         }
 
         return ActivitylogPlugin::get()->isAuthorized();
+    }
+
+    public static function canCreate(): bool
+    {
+        return false; // Activity logs should not be directly created
+    }
+
+    public static function canEdit(Model $record): bool
+    {
+        return false; // Activity logs should not be edited
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return false; // Activity logs should not be deleted directly
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return false; // Prevent bulk deletion of activity logs
     }
 
     protected static function canViewResource(Activity $record): bool

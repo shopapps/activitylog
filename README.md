@@ -17,9 +17,19 @@ This package provides a Filament resource that shows you all of the activity log
 
 ## Requirements
 
--   Laravel v12
--   Filament v3
--   Spatie/Laravel-activitylog v4
+-   PHP ^8.1|^8.2
+-   Laravel ^10.0|^11.0|^12.0
+-   Filament ^3.0
+-   Spatie/Laravel-activitylog ^4.7
+
+## Filament v3 Compatibility
+
+This package has been updated to be fully compatible with FilamentPHP v3, including:
+
+-   Updated Form API (using `Filament\Forms\Form` instead of deprecated Schema API)
+-   Contextual permissions and actions (context7 implementation)
+-   Modern Filament v3 patterns and conventions
+-   Enhanced table actions with context-aware visibility
 
 ## Languages Supported
 
